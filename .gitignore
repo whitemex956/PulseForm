@@ -3,3 +3,5 @@ dist/
 test-audio/*.wav
 test-results/
 *.mp4
+companion/dist/
+test-results/pulseform-companion-test

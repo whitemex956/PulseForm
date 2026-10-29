@@ -342,6 +342,52 @@ await test('no-unsupported-platform-claims', async () => {
   return { checked: bad.length };
 });
 
+await test('windows-companion-protocol-and-app', async () => {
+  // Real WASAPI capture needs Windows hardware. Here the same companion binary,
+  // built for Linux, streams a WAV in real time through the identical analysis
+  // and HTTP/SSE protocol, so the app integration is exercised end to end.
+  const { spawn, execFileSync } = await import('node:child_process');
+  const bin = join(root, 'test-results', 'pulseform-companion-test');
+  execFileSync('go', ['build', '-o', bin, '.'], { cwd: join(root, 'companion') });
+  const comp = spawn(bin, ['--test-wav', join(AUDIO, 'energy.wav'), '--port', '7531']);
+  await new Promise((r) => comp.stderr.on('data', (d) => String(d).includes('listening on') && r()));
+  try {
+    const { b, p, errors } = await page({ mic: null });
+    await p.click('[aria-label="Audio source"]');
+    await p.click('[data-testid=source-companion]');
+    await p.waitForFunction(() => window.pulseform.hub.status.state === 'connected', null, { timeout: 30000 });
+    await p.waitForTimeout(12000);
+    const s = await S(p);
+    const sm = await sample(p, 2);
+    const pill = await p.textContent('.status-pill');
+    await p.screenshot({ path: join(OUT, 'desktop-companion.png') });
+    // stopping disconnects from the companion
+    await wake(p);
+    await p.click('[data-testid=primary]');
+    await p.waitForFunction(() => window.pulseform.hub.status.kind === 'none');
+    await b.close();
+    assert(s.stats.framesPerSecond > 60, `frames/s ${s.stats.framesPerSecond}`);
+    assert(s.stats.bpm && Math.abs(s.stats.bpm - 150) / 150 < 0.02, `bpm ${s.stats.bpm}`);
+    assert(avg(sm, 'waveExtent') > 0.2, 'waveform not drawn');
+    assert(/PC audio/.test(pill), `status "${pill}"`);
+    assert(!errors.length, errors.join('\n'));
+    return { bpm: s.stats.bpm, framesPerSecond: s.stats.framesPerSecond, status: pill, note: 'WAV-fed companion on Linux; WASAPI path needs a Windows PC' };
+  } finally {
+    comp.kill();
+  }
+});
+
+await test('companion-missing-is-explained', async () => {
+  const { b, p } = await page({ mic: null });
+  await p.click('[aria-label="Audio source"]');
+  await p.click('[data-testid=source-companion]');
+  await p.waitForFunction(() => window.pulseform.hub.status.state === 'lost', null, { timeout: 20000 });
+  const pill = await p.textContent('.status-pill');
+  await b.close();
+  assert(/isn’t running/.test(pill), `status "${pill}"`);
+  return { status: pill };
+});
+
 srv.close();
 writeFileSync(join(OUT, 'results.json'), JSON.stringify({ ranAt: new Date().toISOString(), results }, null, 2));
 const failed = results.filter((r) => !r.pass);

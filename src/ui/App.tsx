@@ -59,7 +59,8 @@ function statusText(s: SourceStatus, silent: boolean): { text: string; tone: 'li
     case 'file':
       return { text: s.state === 'playing' ? `Playing · ${s.name}` : s.state === 'ended' ? `Finished · ${s.name}` : `Paused · ${s.name}`, tone: s.state === 'playing' ? 'live' : 'idle' };
     case 'companion':
-      return { text: s.state === 'connected' ? 'Listening · Windows companion' : s.state === 'connecting' ? 'Connecting to Windows companion…' : s.message ?? 'Companion disconnected', tone: s.state === 'connected' ? 'live' : s.state === 'lost' ? 'error' : 'idle' };
+      if (s.state === 'connected') return silent ? { text: 'PC audio · silence — play something', tone: 'warn' } : { text: `Listening · PC audio${s.message ? ` (${s.message})` : ''}`, tone: 'live' };
+      return { text: s.state === 'connecting' ? 'Connecting to Windows companion…' : s.message ?? 'Companion disconnected', tone: s.state === 'lost' ? 'error' : 'idle' };
     case 'remote':
       return { text: s.state === 'receiving' ? 'Receiving from paired desktop' : 'Paired desktop disconnected', tone: s.state === 'receiving' ? 'live' : 'error' };
   }
@@ -142,7 +143,7 @@ export function App() {
           lastUi = now;
           setPlayT(t);
         }
-      } else if ((st.kind === 'mic' && st.state === 'listening') || st.kind === 'companion' || st.kind === 'remote') {
+      } else if ((st.kind === 'mic' && st.state === 'listening') || (st.kind === 'companion' && st.state === 'connected')) {
         hub.analyzer!.stateAt(hub.audioTime, s);
         params = dir.paramsLive(s, hub.analyzer!.stats.transitions);
       } else {
@@ -213,7 +214,7 @@ export function App() {
   }, [prefs.intensity]);
 
   // ---------- immersive auto-hide ----------
-  const active = (status.kind === 'mic' && status.state === 'listening') || (status.kind === 'file' && status.state === 'playing') || status.kind === 'companion' || status.kind === 'remote';
+  const active = (status.kind === 'mic' && status.state === 'listening') || (status.kind === 'file' && status.state === 'playing') || (status.kind === 'companion' && status.state === 'connected');
   useEffect(() => {
     let timer = 0;
     const wake = () => {
@@ -258,7 +259,8 @@ export function App() {
   }, [hub]);
 
   const stop = useCallback(() => {
-    if (hub.status.kind === 'mic') hub.stopMic();
+    if (hub.status.kind === 'companion') hub.stopCompanionSource();
+    else if (hub.status.kind === 'mic') hub.stopMic();
     else if (hub.status.kind === 'file') hub.pauseFile();
   }, [hub]);
 
@@ -269,7 +271,7 @@ export function App() {
       else void hub.playFile();
       return;
     }
-    if (s.kind === 'mic' && s.state === 'listening') stop();
+    if ((s.kind === 'mic' && s.state === 'listening') || s.kind === 'companion') stop();
     else void listen();
   }, [hub, listen, stop]);
 
@@ -504,9 +506,9 @@ export function App() {
   // ---------- render ----------
   const st = statusText(status, silent);
   const isFile = status.kind === 'file';
-  const listening = status.kind === 'mic' && status.state === 'listening';
+  const listening = (status.kind === 'mic' && status.state === 'listening') || status.kind === 'companion';
   const playing = isFile && status.state === 'playing';
-  const showIntro = !active && !isFile && !analyzing;
+  const showIntro = !active && !isFile && !analyzing && status.kind !== 'companion';
   introRef.current = showIntro;
   const micError = status.kind === 'mic' && ['denied', 'unavailable', 'lost', 'error'].includes(status.state);
 
@@ -628,9 +630,9 @@ export function App() {
           <button className={`source-row${isFile ? ' current' : ''}`} onClick={() => fileInput.current?.click()}>
             <b>Song file</b><span>A file you own, analyzed on this device. Full waveform, seeking and export.</span>
           </button>
-          <div className="source-row disabled" aria-disabled>
-            <b>Windows companion</b><span>Reacts to your PC’s sound output through Windows loopback capture. Apps that protect their audio stay silent. Install the companion to enable.</span>
-          </div>
+          <button className={`source-row${status.kind === 'companion' ? ' current' : ''}`} onClick={() => { setSheet(null); void hub.startCompanion(); }} data-testid="source-companion">
+            <b>Windows companion</b><span>Reacts to the sound your PC is playing, from apps that allow it. Needs PulseForm Companion running on this PC. Protected audio stays silent.</span>
+          </button>
           <div className="source-row disabled" aria-disabled>
             <b>Paired desktop</b><span>For headphone listening on iPhone: receive the analysis from your desktop. No audio is sent between devices.</span>
           </div>

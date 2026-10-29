@@ -25,6 +25,8 @@ type Listener = (s: SourceStatus) => void;
 export class AudioHub {
   ctx: AudioContext | null = null;
   analyzer: LiveAnalyzer | null = null;
+  /** analyzer matched to this page's AudioContext rate (mic and file) */
+  private ctxAnalyzer: LiveAnalyzer | null = null;
   private node: AudioWorkletNode | null = null;
   private micStream: MediaStream | null = null;
   private micSource: MediaStreamAudioSourceNode | null = null;
@@ -56,10 +58,13 @@ export class AudioHub {
       const Ctor: typeof AudioContext = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new Ctor({ latencyHint: 'interactive' });
       await this.ctx.audioWorklet.addModule(this.workletUrl);
-      this.analyzer = new LiveAnalyzer(this.ctx.sampleRate);
+      this.analyzer = this.ctxAnalyzer = new LiveAnalyzer(this.ctx.sampleRate);
       this.node = new AudioWorkletNode(this.ctx, 'pulseform-live-analyzer', { numberOfInputs: 1, numberOfOutputs: 0, channelCount: 2, channelCountMode: 'explicit' });
       this.node.port.onmessage = (e: MessageEvent<LiveFrameMsg>) => {
-        if (e.data?.type === 'frame' && this.ctx) this.analyzer?.push(e.data, this.ctx.currentTime);
+        // worklet measurements only feed the analyzer while the worklet's own
+        // input (mic or file playback) is the active source
+        const k = this.status.kind;
+        if (e.data?.type === 'frame' && this.ctx && (k === 'mic' || k === 'file' || k === 'none')) this.ctxAnalyzer?.push(e.data, this.ctx.currentTime);
       };
       this.tapGain = this.ctx.createGain();
       this.tapGain.connect(this.node);
@@ -133,6 +138,12 @@ export class AudioHub {
     this.micStream = null;
   }
 
+  stopCompanionSource(): void {
+    if (this.status.kind !== 'companion') return;
+    this.stopCompanion();
+    this.set({ kind: 'none', state: 'idle' });
+  }
+
   stopMic(): void {
     if (this.status.kind !== 'mic') return;
     this.teardownMic();
@@ -166,6 +177,60 @@ export class AudioHub {
     this.set({ kind: 'file', state: 'paused', name: this.status.name });
   }
 
+  // ---------------- Windows companion ----------------
+  private companion: EventSource | null = null;
+  companionUrl = 'http://127.0.0.1:7531';
+
+  /**
+   * Connect to the Windows companion on this computer. It sends measurements
+   * (never audio) captured with WASAPI loopback.
+   */
+  async startCompanion(): Promise<void> {
+    this.stopAll();
+    const ctx = await this.ensureContext();
+    this.set({ kind: 'companion', state: 'connecting' });
+    let connected = false;
+    let analyzerRate = 0;
+    const es = new EventSource(`${this.companionUrl}/stream`);
+    this.companion = es;
+    const failTimer = window.setTimeout(() => {
+      if (!connected && this.companion === es) {
+        es.close();
+        this.companion = null;
+        this.set({ kind: 'companion', state: 'lost', message: 'The Windows companion isn’t running. Start PulseForm Companion on this PC, then try again.' });
+      }
+    }, 4000);
+    es.onmessage = (e) => {
+      const m = JSON.parse(e.data);
+      if (m.type === 'hello') {
+        connected = true;
+        window.clearTimeout(failTimer);
+        if (analyzerRate !== m.sampleRate) {
+          // measurements are per hop at the companion's sample rate
+          analyzerRate = m.sampleRate;
+          this.analyzer = new LiveAnalyzer(m.sampleRate);
+        }
+        this.set({ kind: 'companion', state: 'connected', message: m.device });
+        return;
+      }
+      if (m.type !== 'frame' || !this.analyzer) return;
+      // place the frame on this page's audio clock
+      const t = ctx.currentTime - (m.age ?? 0);
+      this.analyzer.push({ ...m, t, bands: Float32Array.from(m.bands), wave: Float32Array.from(m.wave) }, ctx.currentTime);
+    };
+    es.onerror = () => {
+      if (this.companion !== es) return;
+      if (connected) this.set({ kind: 'companion', state: 'lost', message: 'Lost the Windows companion. Reconnecting…' });
+      // EventSource retries automatically; a later 'hello' restores 'connected'
+    };
+  }
+
+  private stopCompanion() {
+    this.companion?.close();
+    this.companion = null;
+    if (this.ctxAnalyzer) this.analyzer = this.ctxAnalyzer;
+  }
+
   // ---------------- companion / remote ----------------
   setExternal(s: SourceStatus): void {
     this.set(s);
@@ -181,6 +246,7 @@ export class AudioHub {
 
   stopAll(): void {
     this.teardownMic();
+    this.stopCompanion();
     if (this.transport) {
       this.transport.dispose();
       this.transport = null;

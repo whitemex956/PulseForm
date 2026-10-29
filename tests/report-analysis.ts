@@ -3,6 +3,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { analyzeAudio } from '../src/analysis/analyze';
 import { readWav } from './wav';
+import { fileURLToPath as __f2p } from 'node:url';
+import { dirname as __dn } from 'node:path';
+const __dirname = __dn(__f2p(import.meta.url));
 
 const dir = join(__dirname, '..', 'test-audio');
 const truth = JSON.parse(readFileSync(join(dir, 'ground_truth.json'), 'utf8'));
