@@ -349,12 +349,80 @@ def make_energy():
     return normalize(buf, -0.5), gt
 
 
+def make_vocal():
+    """Vocal-focused: a sung-like formant voice over soft pads, no drums or bass."""
+    dur = 40.0
+    buf = np.zeros(int(dur * SR))
+    melody = [64, 67, 69, 67, 64, 62, 60, 62, 64, 67, 72, 71, 69, 67, 64, 62]
+    note_len = 2.2
+    vowels = [(800, 1150, 2900), (400, 1600, 2700), (350, 600, 2700), (600, 1040, 2250)]  # a, e, o, ah
+    for i, n in enumerate(melody):
+        start = 1.0 + i * note_len
+        if start > dur - 3:
+            break
+        t = t_axis(note_len * 1.05)
+        f0 = midi(n) * (1 + 0.012 * np.sin(2 * np.pi * 5.5 * t) * np.clip(t / 0.4, 0, 1))
+        ph = 2 * np.pi * np.cumsum(f0) / SR
+        src = sum(np.sin(k * ph) / k for k in range(1, 30))
+        f1, f2, f3 = vowels[i % 4]
+        v = bandpass(src, f1 * 0.8, f1 * 1.25) * 1.0 + bandpass(src, f2 * 0.85, f2 * 1.18) * 0.6 + bandpass(src, f3 * 0.9, f3 * 1.1) * 0.3
+        breath = highpass(RNG.standard_normal(len(t)), 3000) * 0.02
+        place(buf, (v + breath) * env_adsr(len(t), 0.08, 0.2, 0.85, 0.3), start, 0.9)
+    prog = [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62]]
+    for i in range(int(dur / 8)):
+        place(buf, pad(prog[i % 4], 9, cutoff=1400, attack=1.5, release=1.5), i * 8, 0.12)
+    gt = {"name": "vocal", "duration": dur, "bpm": None, "has_pulse": False, "sections": [{"start": 0, "end": dur, "label": "verse"}], "drops": [], "expected": {"energy": "low", "focus": "mid"}}
+    return normalize(buf, -3.0), gt
+
+
+def make_bass():
+    """Bass-heavy: sub bass and kicks at 128 BPM, almost nothing above 1 kHz."""
+    bpm = 128.0
+    beat = 60.0 / bpm
+    dur = 40.0
+    buf = np.zeros(int(dur * SR))
+    notes = [33, 33, 36, 31]
+    for b in range(int(dur / beat)):
+        tb = b * beat
+        place(buf, kick(1.2), tb, 1.0)
+        n = notes[(b // 4) % 4]
+        t = t_axis(beat * 0.9)
+        sub = np.sin(2 * np.pi * midi(n) * t) + 0.3 * np.sin(2 * np.pi * midi(n) * 2 * t)
+        place(buf, lowpass(sub, 180) * env_adsr(len(t), 0.01, 0.1, 0.9, 0.05), tb + beat * 0.05, 0.8)
+    buf = lowpass(buf, 900)
+    gt = {"name": "bass", "duration": dur, "bpm": bpm, "first_beat": 0.0, "has_pulse": True, "sections": [{"start": 0, "end": dur, "label": "groove"}], "drops": [], "expected": {"focus": "low"}}
+    return normalize(buf, -1.0), gt
+
+
+def make_silence():
+    dur = 20.0
+    # -90 dBFS noise floor, like a quiet room through a decent mic
+    buf = RNG.standard_normal(int(dur * SR)) * 10 ** (-90 / 20)
+    return buf, {"name": "silence", "duration": dur, "bpm": None, "has_pulse": False, "sections": [], "drops": [], "expected": {}}
+
+
 def main():
     out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), "..", "test-audio")
     os.makedirs(out, exist_ok=True)
     truth = {}
-    for fn, maker in (("ambient", make_ambient), ("house", make_house), ("energy", make_energy)):
+    makers = (("ambient", make_ambient), ("house", make_house), ("energy", make_energy), ("vocal", make_vocal), ("bass", make_bass), ("silence", make_silence))
+    only = sys.argv[2:] if len(sys.argv) > 2 else None
+    if only:
+        try:
+            with open(os.path.join(out, "ground_truth.json")) as f:
+                truth = json.load(f)
+        except FileNotFoundError:
+            pass
+    for fn, maker in makers:
+        if only and fn not in only:
+            continue
         audio, gt = maker()
+        if fn == "silence":
+            stereo = np.stack([audio, audio], axis=1)
+            wavfile.write(os.path.join(out, f"{fn}.wav"), SR, (stereo * 32767).astype(np.int16))
+            truth[fn] = gt
+            print(f"wrote {fn}.wav")
+            continue
         stereo = to_stereo(audio, width_noise=0.3)
         wavfile.write(os.path.join(out, f"{fn}.wav"), SR, (stereo * 32767).astype(np.int16))
         truth[fn] = gt

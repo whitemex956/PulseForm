@@ -1,0 +1,299 @@
+<title>PulseForm V1 Plan</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one narrow reading column; device mockups break out wide; dark single-theme by brand choice */
+:root {
+  --ink: #050508;
+  --ink-2: #0d0d14;
+  --line: rgba(220, 215, 255, 0.10);
+  --line-2: rgba(220, 215, 255, 0.18);
+  --fg: #f2f0f8;
+  --fg-2: rgba(242, 240, 248, 0.66);
+  --fg-3: rgba(242, 240, 248, 0.42);
+  --blue: #2f6bff;
+  --violet: #8a3dff;
+  --pink: #ff3dd6;
+  --warm: #ff8a3d;
+  --ok: #4fe0a0;
+  --warn: #ffb347;
+  --sig: linear-gradient(90deg, var(--blue), var(--violet) 40%, var(--pink) 72%, var(--warm));
+  --display: 'Unbounded', 'Figtree', system-ui, sans-serif;
+  --body: 'Figtree', -apple-system, 'Segoe UI', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { background: var(--ink); color: var(--fg); }
+body { font-family: var(--body); font-size: 16px; line-height: 1.55; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 80px; }
+.wrap { max-width: 760px; margin: 0 auto; }
+.wide { max-width: 1180px; margin: 0 auto; }
+header { padding-block: 64px 28px; }
+.brand { display: flex; align-items: center; gap: 12px; font-family: var(--display); font-weight: 500; font-size: 15px; letter-spacing: 0.02em; }
+.brand svg { width: 44px; height: 26px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: clamp(34px, 6vw, 62px); line-height: 1.02; letter-spacing: -0.03em; margin: 28px 0 14px; text-wrap: balance; }
+h1 em { font-style: normal; background: var(--sig); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.lede { color: var(--fg-2); font-size: 18px; max-width: 60ch; margin: 0; }
+h2 { font-family: var(--display); font-weight: 500; font-size: 22px; letter-spacing: -0.01em; margin: 64px 0 8px; text-wrap: balance; }
+h2 + p { color: var(--fg-2); margin: 0 0 22px; max-width: 62ch; }
+h3 { font-size: 15px; font-weight: 600; margin: 0 0 6px; }
+.eyebrow { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-3); }
+p, li { max-width: 65ch; }
+code, .mono { font-family: var(--mono); font-size: 0.88em; }
+
+/* ---------- device mockups ---------- */
+.devices { display: grid; grid-template-columns: 1.55fr 0.62fr; grid-template-areas: "desk phone" "tv phone"; gap: 22px; align-items: start; margin-top: 30px; }
+.dev { min-width: 0; }
+.dev .cap { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-top: 10px; }
+.dev .cap span:last-child { color: var(--fg-3); font-size: 13px; text-align: right; }
+.desk { grid-area: desk; } .phone { grid-area: phone; } .tv { grid-area: tv; }
+.screen { position: relative; overflow: hidden; background: #000; border: 1px solid var(--line-2); max-width: 100%; }
+.desk .screen { aspect-ratio: 16 / 10; border-radius: 14px; }
+.tv .screen { aspect-ratio: 16 / 9; border-radius: 6px; border-width: 6px; border-color: #15151c; }
+.phone .screen { aspect-ratio: 9 / 19.5; border-radius: 38px; border-width: 7px; border-color: #15151c; }
+.screen canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.ui { position: absolute; inset: 0; pointer-events: none; font-size: 10px; color: var(--fg-2); }
+.ui .tb { position: absolute; top: 4%; left: 4%; right: 4%; display: flex; justify-content: space-between; align-items: center; }
+.ui .wm { display: flex; gap: 5px; align-items: center; font-family: var(--display); font-size: 9px; color: var(--fg); }
+.ui .wm i { width: 14px; height: 4px; border-radius: 2px; background: var(--sig); }
+.pill { border: 1px solid var(--line-2); border-radius: 99px; padding: 2px 7px; font-size: 8.5px; background: rgba(255,255,255,0.04); white-space: nowrap; }
+.pill.live::before { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 9px; background: var(--pink); margin-right: 4px; vertical-align: 1px; box-shadow: 0 0 6px var(--pink); }
+.wave-band { position: absolute; left: 0; right: 0; bottom: 0; height: 22%; border-top: 1px solid rgba(255,255,255,0.05); background: linear-gradient(180deg, transparent, rgba(5,5,8,0.6)); }
+.ctrls { position: absolute; left: 50%; bottom: 3.5%; transform: translateX(-50%); display: flex; gap: 6px; align-items: center; padding: 4px 6px; border-radius: 99px; background: rgba(20,20,28,0.6); border: 1px solid var(--line-2); backdrop-filter: blur(8px); }
+.ctrls b { width: 16px; height: 16px; border-radius: 99px; background: rgba(255,255,255,0.08); display: block; }
+.ctrls b.main { width: 46px; background: var(--fg); }
+.phone .ctrls { bottom: 3%; }
+.phone .ctrls b { width: 22px; height: 22px; }
+.phone .ctrls b.main { width: 64px; }
+.tv .ui .corner { position: absolute; right: 2.5%; bottom: 4%; font-size: 8px; color: var(--fg-3); }
+.remote-hint { position: absolute; left: 6%; right: 6%; top: 11%; text-align: center; font-size: 9px; color: var(--fg-3); }
+
+/* ---------- content blocks ---------- */
+.inv { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 8px; }
+.inv > div { min-width: 0; padding-top: 14px; border-top: 1px solid var(--line-2); }
+.inv ul { margin: 0; padding-left: 18px; color: var(--fg-2); font-size: 14.5px; }
+.inv li + li { margin-top: 4px; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 560px; }
+th, td { text-align: left; vertical-align: top; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+th { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-3); background: var(--ink-2); }
+tr:last-child td { border-bottom: none; }
+td:first-child { color: var(--fg); font-weight: 500; }
+td { color: var(--fg-2); }
+.st { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11.5px; white-space: nowrap; padding: 3px 8px; border-radius: 99px; border: 1px solid currentColor; }
+.st.pass { color: var(--ok); }
+.st.todo { color: var(--fg-3); }
+.st.hw { color: var(--warn); }
+.mapping { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.mapping > div { padding: 16px; min-width: 0; }
+.mapping > div + div { border-left: 1px solid var(--line); }
+.mapping .band { font-family: var(--mono); font-size: 12px; margin-bottom: 8px; }
+.mapping .b1 { color: #7fa6ff; } .mapping .b2 { color: #c49bff; } .mapping .b3 { color: #ff8be6; }
+.mapping ul { margin: 0; padding-left: 16px; font-size: 14px; color: var(--fg-2); }
+pre.mermaid { background: var(--ink-2); border: 1px solid var(--line); border-radius: 12px; padding: 18px; overflow-x: auto; }
+.note { border-left: 2px solid var(--warn); padding: 4px 0 4px 14px; color: var(--fg-2); font-size: 15px; margin: 18px 0; }
+footer { margin-top: 64px; color: var(--fg-3); font-size: 13px; }
+
+@media (max-width: 860px) {
+  .devices { grid-template-columns: 1fr; grid-template-areas: "desk" "phone" "tv"; }
+  .phone .screen { width: 62%; margin: 0 auto; }
+  .phone .cap { width: 62%; margin-left: auto; margin-right: auto; }
+  .inv, .mapping { grid-template-columns: 1fr; }
+  .mapping > div + div { border-left: none; border-top: 1px solid var(--line); }
+}
+@media (max-width: 480px) { .phone .screen, .phone .cap { width: 82%; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg viewBox="0 0 60 36" aria-hidden="true"><defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#2f6bff"/><stop offset=".4" stop-color="#8a3dff"/><stop offset=".72" stop-color="#ff3dd6"/><stop offset="1" stop-color="#ff8a3d"/></linearGradient></defs><path d="M2 24c6-10 10-10 14-2s7 9 10-6 6-14 9 0 5 17 9 9 7-9 14-3" fill="none" stroke="url(#g)" stroke-width="5" stroke-linecap="round"/></svg>
+      PulseForm
+    </div>
+    <h1>See what <em>you hear.</em></h1>
+    <p class="lede">Phase 1 plan for PulseForm V1: one full-screen listening experience on desktop, iPhone and TV. A liquid-chrome sculpture fills the top, the real signal scrolls below, and controls stay out of the way.</p>
+  </header>
+</div>
+
+<section class="wide" aria-labelledby="layouts">
+  <div class="wrap">
+    <h2 id="layouts">Proposed layouts</h2>
+    <p>Same artwork on every device. Each screen gets the controls that suit its distance from the viewer. The sculpture below is a moving sketch of the layout, not the final render.</p>
+  </div>
+  <div class="devices">
+    <div class="dev desk">
+      <div class="screen" data-art="desk">
+        <canvas></canvas>
+        <div class="ui">
+          <div class="tb"><span class="wm"><i></i>PulseForm</span><span class="pill live">Listening · Microphone</span></div>
+          <div class="wave-band"></div>
+          <div class="ctrls"><b class="main"></b><b></b><b></b><b></b><b></b><b></b></div>
+        </div>
+      </div>
+      <div class="cap"><h3>Desktop</h3><span>Artwork 75% · live waveform 20% · floating controls that fade after 3 s</span></div>
+    </div>
+    <div class="dev phone">
+      <div class="screen" data-art="phone">
+        <canvas></canvas>
+        <div class="ui">
+          <div class="tb"><span class="wm"><i></i></span><span class="pill">Connected · Living room</span></div>
+          <div class="wave-band" style="height:18%"></div>
+          <div class="ctrls"><b></b><b class="main"></b><b></b></div>
+        </div>
+      </div>
+      <div class="cap"><h3>iPhone</h3><span>Thumb-reach controls. Swipe to change world, pinch for intensity</span></div>
+    </div>
+    <div class="dev tv">
+      <div class="screen" data-art="tv">
+        <canvas></canvas>
+        <div class="ui"><span class="corner">Controlled from iPhone</span></div>
+      </div>
+      <div class="cap"><h3>TV</h3><span>No controls on screen. Steered from the paired phone</span></div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+  <h2>Screen inventory</h2>
+  <p>One main screen per device. Everything else is a sheet or overlay on top of the artwork.</p>
+  <div class="inv">
+    <div><h3>Desktop</h3><ul><li>Player: sculpture, waveform or spectrum, dock</li><li>Source sheet: microphone, song file, Windows companion</li><li>Worlds sheet with Surprise Me and saved worlds</li><li>Connect display: QR code and 6-digit code</li><li>Settings: motion, flashes, quality, diagnostics</li><li>Export sheet for song files (9:16, 16:9, 1:1)</li></ul></div>
+    <div><h3>iPhone</h3><ul><li>Player with portrait and landscape layouts</li><li>Pair: scan QR or type code</li><li>Remote: world, intensity, listen, seek for files</li><li>Source: microphone or a song file</li><li>Receive-only mode for headphone listening</li></ul></div>
+    <div><h3>TV</h3><ul><li>Display: artwork only, no chrome</li><li>Pairing card shown until a controller joins</li><li>Reconnecting state that keeps the visual running</li></ul></div>
+  </div>
+
+  <h2>Audio sources</h2>
+  <p>PulseForm reacts to audio it is allowed to hear. It never reads another app's stream directly, and the app says so in plain words.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Mode</th><th>What it hears</th><th>Limits shown to the user</th></tr></thead>
+    <tbody>
+      <tr><td>Microphone</td><td>Music playing out loud, through the device mic, after the user taps Listen</td><td>Room noise and speaker quality affect results. Stops when the user stops or revokes permission.</td></tr>
+      <tr><td>Song file</td><td>A file the user owns, decoded on the device, with full-track analysis</td><td>Plays inside PulseForm. Enables seeking, full waveform and MP4 export.</td></tr>
+      <tr><td>Windows companion</td><td>System output through WASAPI loopback, sent as analysis numbers only</td><td>Windows only. Apps that protect their audio stay silent. Needs a one-time install.</td></tr>
+      <tr><td>Paired desktop</td><td>The phone or TV receives analysis from the desktop</td><td>For headphone listening. No audio travels between devices.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">There is no Spotify, Apple Music or other streaming-service integration. Those services don't permit reading their audio, so PulseForm doesn't attempt it.</p>
+
+  <h2>How the sound drives the sculpture</h2>
+  <p>All three bands act at once, each smoothed with its own attack and release so motion reads as weight rather than jitter.</p>
+  <div class="mapping">
+    <div><div class="band b1">LOW · 20–150 Hz</div><ul><li>Expansion and contraction</li><li>Deep pulses on kicks</li><li>Large surface waves</li></ul></div>
+    <div><div class="band b2">MID · 150 Hz–2 kHz</div><ul><li>Organic folds</li><li>Slow shape transitions</li><li>Inner colour drift</li></ul></div>
+    <div><div class="band b3">HIGH · 2–16 kHz</div><ul><li>Rim shimmer and highlights</li><li>Fine particle sparkle</li><li>Small, capped flashes</li></ul></div>
+  </div>
+
+  <h2>Architecture</h2>
+  <p>Every source produces the same compact frame of measurements. Every world reads that frame through one interface, so audio logic exists once.</p>
+  <pre class="mermaid">
+flowchart LR
+  MIC[Microphone] --> FX
+  FILE[Song file] --> PRE[Full-track analysis] --> TL[Timeline]
+  FILE --> FX
+  WIN[Windows companion] -->|numbers over localhost| FX
+  FX[Feature extractor<br/>same code live and offline] --> DIR[Visual director<br/>rules + seed]
+  TL --> DIR
+  DIR --> STATE[VisualState]
+  STATE --> WORLDS[Worlds<br/>Liquid Form first]
+  STATE --> WAVE[Waveform / spectrum]
+  STATE -->|timestamped, 30 Hz| RTC[Paired session<br/>WebRTC data channel]
+  RTC --> PHONE[iPhone]
+  RTC --> TV[TV display]
+  </pre>
+
+  <h2>Acceptance criteria</h2>
+  <p>A test counts as passed only after it has actually run. Status as of this plan.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Check</th><th>Measure</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Tempo on pulsed tracks</td><td>Within 1% of ground truth</td><td><span class="st pass">Passing · 124.0, 150.0</span></td></tr>
+      <tr><td>Beat accuracy</td><td>F-measure ≥ 0.90 at ±70 ms</td><td><span class="st pass">Passing · 0.996</span></td></tr>
+      <tr><td>Drops in song files</td><td>Within 1 beat, no false drops</td><td><span class="st pass">Passing</span></td></tr>
+      <tr><td>Ambient has no fake beat</td><td>No pulse, no drops reported</td><td><span class="st pass">Passing</span></td></tr>
+      <tr><td>Waveform is the real signal</td><td>Drawn samples match input buffer</td><td><span class="st todo">Not run</span></td></tr>
+      <tr><td>Silence stays calm</td><td>Waveform flat, sculpture motion below rest threshold</td><td><span class="st todo">Not run</span></td></tr>
+      <tr><td>Bass vs vocal tracks differ</td><td>Measured deformation and colour stats differ</td><td><span class="st todo">Not run</span></td></tr>
+      <tr><td>Mic grant, revoke, stop</td><td>Analysis halts within 100 ms of Stop</td><td><span class="st todo">Not run</span></td></tr>
+      <tr><td>Frame rate</td><td>60 fps desktop, adaptive quality on mobile</td><td><span class="st todo">Not run</span></td></tr>
+      <tr><td>Remote latency</td><td>Phone command to TV under 150 ms on LAN</td><td><span class="st todo">Not run</span></td></tr>
+      <tr><td>Reconnection</td><td>Session resumes after link drop without reload</td><td><span class="st todo">Not run</span></td></tr>
+      <tr><td>Flash safety</td><td>No more than 3 flashes per second, ever</td><td><span class="st todo">Not run</span></td></tr>
+      <tr><td>Windows loopback</td><td>Reacts to system audio on real hardware</td><td><span class="st hw">Needs your PC</span></td></tr>
+      <tr><td>iPhone controls</td><td>Pairing and remote on a real phone</td><td><span class="st hw">Needs your iPhone</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>Known limits</h2>
+  <ul>
+    <li>The package registry is blocked in the build environment, so Three.js can't be installed yet. Liquid Form is written as a WebGL2 shader that drops straight into Three.js once access is allowed.</li>
+    <li>iOS lets web apps use the microphone but not other apps' audio. Headphone listening on iPhone works only through a paired desktop.</li>
+    <li>Cross-network pairing needs a small signalling server. A local one ships with the app. Hosting it publicly waits for your approval.</li>
+    <li>Beat and section labels are estimates. The interface marks them as estimates.</li>
+  </ul>
+  <footer>PulseForm · Phase 1 · October 2026</footer>
+</div>
+
+<script>
+(function () {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const arts = [...document.querySelectorAll('[data-art]')].map((el) => ({ el, c: el.querySelector('canvas') }));
+  function size(a) {
+    const r = a.el.getBoundingClientRect();
+    const d = Math.min(2, devicePixelRatio || 1);
+    a.c.width = Math.max(1, r.width * d); a.c.height = Math.max(1, r.height * d);
+  }
+  arts.forEach(size);
+  addEventListener('resize', () => arts.forEach(size));
+  function draw(a, t) {
+    const g = a.c.getContext('2d'); const W = a.c.width, H = a.c.height;
+    g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+    const kind = a.el.dataset.art;
+    const artH = kind === 'tv' ? H : H * (kind === 'phone' ? 0.8 : 0.78);
+    const cx = W / 2, cy = artH * (kind === 'phone' ? 0.5 : 0.52);
+    const R = Math.min(W, artH) * (kind === 'tv' ? 0.3 : 0.27);
+    const beat = Math.pow(Math.max(0, Math.sin(t * 4.2)), 8);
+    // glow
+    const glow = g.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * 2.2);
+    glow.addColorStop(0, 'rgba(138,61,255,0.32)'); glow.addColorStop(0.5, 'rgba(47,107,255,0.10)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = glow; g.fillRect(0, 0, W, artH);
+    // blob
+    g.beginPath();
+    const N = 90;
+    for (let i = 0; i <= N; i++) {
+      const a2 = (i / N) * Math.PI * 2;
+      const r = R * (1 + 0.12 * Math.sin(a2 * 3 + t * 0.9) + 0.07 * Math.sin(a2 * 5 - t * 1.3) + 0.05 * beat * Math.sin(a2 * 2 + t));
+      const x = cx + Math.cos(a2) * r * 1.25, y = cy + Math.sin(a2) * r * 0.8;
+      i ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    const lg = g.createLinearGradient(cx - R * 1.3, cy - R, cx + R * 1.3, cy + R);
+    const s = (Math.sin(t * 0.4) + 1) / 2;
+    lg.addColorStop(0, '#2f6bff'); lg.addColorStop(0.35 + 0.1 * s, '#8a3dff'); lg.addColorStop(0.62, '#ff3dd6'); lg.addColorStop(0.8, '#ff8a3d'); lg.addColorStop(1, '#1a1a40');
+    g.fillStyle = lg; g.fill();
+    const hl = g.createRadialGradient(cx - R * 0.5, cy - R * 0.45, 0, cx - R * 0.5, cy - R * 0.45, R * 0.9);
+    hl.addColorStop(0, 'rgba(255,255,255,0.75)'); hl.addColorStop(0.25, 'rgba(255,255,255,0.12)'); hl.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = hl; g.fill();
+    g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = Math.max(1, W / 500); g.stroke();
+    if (kind === 'tv') return;
+    // waveform band
+    const top = artH, bh = H - artH - (kind === 'phone' ? H * 0.09 : H * 0.07), mid = top + bh * 0.55;
+    const wg = g.createLinearGradient(0, 0, W, 0);
+    wg.addColorStop(0, '#2f6bff'); wg.addColorStop(0.5, '#8a3dff'); wg.addColorStop(1, '#ff3dd6');
+    g.strokeStyle = wg; g.lineWidth = Math.max(1, W / 420); g.shadowColor = '#8a3dff'; g.shadowBlur = W / 60;
+    g.beginPath();
+    for (let x = 0; x <= W; x += 2) {
+      const u = x / W;
+      const env = 0.35 + 0.65 * Math.pow(Math.abs(Math.sin(u * 9 - t * 2)), 2);
+      const y = mid + Math.sin(u * 140 + t * 18) * Math.sin(u * 23 - t * 3) * bh * 0.38 * env;
+      x ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.stroke(); g.shadowBlur = 0;
+  }
+  let t0 = performance.now();
+  function frame(now) {
+    const t = (now - t0) / 1000;
+    arts.forEach((a) => draw(a, reduce ? 1.2 : t));
+    if (!reduce) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>

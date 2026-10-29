@@ -114,5 +114,50 @@
       "energy": "high",
       "brightness": "bright"
     }
+  },
+  "vocal": {
+    "name": "vocal",
+    "duration": 40.0,
+    "bpm": null,
+    "has_pulse": false,
+    "sections": [
+      {
+        "start": 0,
+        "end": 40.0,
+        "label": "verse"
+      }
+    ],
+    "drops": [],
+    "expected": {
+      "energy": "low",
+      "focus": "mid"
+    }
+  },
+  "bass": {
+    "name": "bass",
+    "duration": 40.0,
+    "bpm": 128.0,
+    "first_beat": 0.0,
+    "has_pulse": true,
+    "sections": [
+      {
+        "start": 0,
+        "end": 40.0,
+        "label": "groove"
+      }
+    ],
+    "drops": [],
+    "expected": {
+      "focus": "low"
+    }
+  },
+  "silence": {
+    "name": "silence",
+    "duration": 20.0,
+    "bpm": null,
+    "has_pulse": false,
+    "sections": [],
+    "drops": [],
+    "expected": {}
   }
 }

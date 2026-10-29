@@ -1,0 +1,25 @@
+{
+  "name": "pulseform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PulseForm — see what you hear. Real-time music-reactive 3D visuals.",
+  "type": "module",
+  "scripts": {
+    "dev": "node build.mjs --serve",
+    "build": "node build.mjs",
+    "test": "tsx --test tests/*.test.ts",
+    "test:e2e": "node tests/e2e/run.mjs",
+    "signal": "node server/signal.mjs",
+    "synth": "python3 tools/synth_test_tracks.py"
+  },
+  "dependencies": {
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "playwright": "1.63.0",
+    "tsx": "^4.20.0",
+    "typescript": "^6.0.3"
+  }
+}
