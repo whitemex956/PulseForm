@@ -131,11 +131,13 @@ export type Command =
   | { cmd: 'intensity'; value: number }
   | { cmd: 'palette'; value: number }
   | { cmd: 'surprise' }
+  | { cmd: 'world'; value: string }
   | { cmd: 'reducedMotion'; value: boolean }
   | { cmd: 'photosensitive'; value: boolean };
 
 export interface SceneParams {
   world: string;
+  stage?: string;
   seed: number;
   colors: string[];
   paletteName: string;

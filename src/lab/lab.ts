@@ -6,6 +6,7 @@ import { analyzeAudio } from '../analysis/analyze';
 import { Timeline } from '../timeline/timeline';
 import { Engine } from '../render/engine';
 import { LiquidForm } from '../render/worlds/liquid';
+import { WORLDS } from '../render/worlds';
 import { hexToRgb } from '../render/gl';
 import { proposeDirections, SIGNATURE } from '../director/director';
 import type { WorldParams } from '../render/world';
@@ -31,7 +32,8 @@ async function load(name: string) {
 
 const canvas = document.getElementById('c') as HTMLCanvasElement;
 const engine = new Engine(canvas);
-engine.register(new LiquidForm());
+for (const W of WORLDS) engine.register(W.create());
+void LiquidForm;
 const tracks: Record<string, Awaited<ReturnType<typeof load>>> = {};
 
 window.lab = {
@@ -40,7 +42,7 @@ window.lab = {
     tracks[name] = tracks[name] ?? (await load(name));
     return { duration: tracks[name].analysis.duration, drops: tracks[name].analysis.drops, directions: proposeDirections(tracks[name].analysis).map((d) => ({ family: d.family, palette: d.palette.colors })) };
   },
-  renderAt(name: string, t: number, o: Partial<WorldParams> & { colors?: string[]; noFlash?: boolean } = {}) {
+  renderAt(name: string, t: number, o: Partial<WorldParams> & { colors?: string[]; noFlash?: boolean; world?: string } = {}) {
     const tr = tracks[name];
     const s = tr.timeline.stateAt(t);
     const p: WorldParams = {
@@ -55,7 +57,8 @@ window.lab = {
       camera: o.camera ?? 0,
     };
     if (o.noFlash) s.flash = 0;
-    engine.render('liquid', s, p, performance.now());
+    engine.settings.stageWorld = (o as { stage?: string }).stage ?? null;
+    engine.render(o.world ?? 'liquid', s, p, performance.now());
     return { low: s.low, mid: s.mid, high: s.high, kick: s.kick, intensity: s.intensity, section: s.section, stats: { ...engine.stats } };
   },
 };

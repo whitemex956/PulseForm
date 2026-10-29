@@ -5,26 +5,29 @@ import type { AnalysisResult, ProgressEvent, AnalysisStage } from '../analysis/t
 import type { WorkerOut } from '../audio/analysis.worker';
 import { Timeline, emptyState, type VisualState } from '../timeline/timeline';
 import { Engine } from '../render/engine';
-import { LiquidForm } from '../render/worlds/liquid';
+import { WORLDS, worldName } from '../render/worlds';
+import { FAMILY_INFO, proposeDirections, type ArtDirection } from '../director/director';
 import { DirectorRuntime, defaultDirector, SHAPES } from '../director/runtime';
 import { SIGNATURE, makePalette, REMOTE_PALETTES, type Palette } from '../director/director';
 import { Rng } from '../core/random';
 import { drawFileWave, drawLiveWave, drawSpectrum, type FilePeaks } from './waveDraw';
 import {
-  IconPlay, IconPause, IconSliders, IconShuffle, IconExpand, IconClose, IconUpload, IconCheck, Mark, IconSparkle,
+  IconPlay, IconPause, IconSliders, IconShuffle, IconExpand, IconClose, IconUpload, IconCheck, Mark, IconSparkle, IconExport,
 } from './icons';
 import { loadPrefs, savePrefs, loadWorlds, saveWorlds, type SavedWorld } from './prefs';
 import { fmtTime } from '../director/director';
 import { SessionHost } from '../session/controllers';
 import type { Command } from '../session/protocol';
 import { encodeQR, qrToSvg } from '../core/qr';
+import { ExportSheet } from './ExportSheet';
 import { api } from '../session/link';
 
-type Sheet = null | 'source' | 'visual' | 'settings' | 'connect';
+type Sheet = null | 'source' | 'visual' | 'settings' | 'connect' | 'export';
 type BandView = 'wave' | 'spectrum';
 
 interface FileSession {
   name: string;
+  buffer: AudioBuffer;
   analysis: AnalysisResult;
   timeline: Timeline;
   peaks: FilePeaks;
@@ -66,6 +69,8 @@ function statusText(s: SourceStatus, silent: boolean): { text: string; tone: 'li
   }
 }
 
+const prefs0 = loadPrefs();
+
 export function App() {
   const artRef = useRef<HTMLCanvasElement>(null);
   const bandRef = useRef<HTMLCanvasElement>(null);
@@ -97,6 +102,10 @@ export function App() {
   bandViewRef.current = band;
   const variation = useRef(0);
   const introRef = useRef(true);
+  const [world, setWorldState] = useState<string>(() => (WORLDS.some((w) => w.id === prefs0.world) ? prefs0.world : 'liquid'));
+  const worldRef = useRef(world);
+  worldRef.current = world;
+  const [proposals, setProposals] = useState<ArtDirection[]>([]);
   const hostRef = useRef<SessionHost | null>(null);
   const lastShapes = useRef({ shapeA: 1, shapeB: 1, morph: 0 });
   const [host, setHost] = useState<SessionHost | null>(null);
@@ -115,7 +124,6 @@ export function App() {
     let engine: Engine;
     try {
       engine = new Engine(canvas);
-      engine.register(new LiquidForm());
     } catch (e) {
       setGlError(e instanceof Error ? e.message : String(e));
       return;
@@ -160,7 +168,12 @@ export function App() {
       // lift the sculpture while the intro copy is on screen
       const target = introRef.current ? 0.2 : 0.08;
       engine.settings.frameOffset += (target - engine.settings.frameOffset) * 0.06;
-      engine.render('liquid', s, params, now);
+      const wid = worldRef.current;
+      if (!engine.hasWorld(wid)) engine.register(WORLDS.find((w) => w.id === wid)!.create());
+      const stageId = wid === 'festival' ? prefsRef.current.stage : null;
+      if (stageId && !engine.hasWorld(stageId)) engine.register(WORLDS.find((w) => w.id === stageId)!.create());
+      engine.settings.stageWorld = stageId;
+      engine.render(wid, s, params, now);
       lastShapes.current = { shapeA: params.shapeA, shapeB: params.shapeB, morph: params.morph };
 
       // bottom band
@@ -254,6 +267,7 @@ export function App() {
   const listen = useCallback(async () => {
     setSheet(null);
     fileRef.current = null;
+    setProposals([]);
     setFileInfo(null);
     await hub.startMic();
   }, [hub]);
@@ -308,8 +322,11 @@ export function App() {
         w.postMessage({ channels, sampleRate: buffer.sampleRate }, channels.map((c) => c.buffer));
       });
       const timeline = new Timeline(analysis);
-      fileRef.current = { name: file.name, analysis, timeline, peaks };
+      fileRef.current = { name: file.name, buffer, analysis, timeline, peaks };
       const dir = directorRef.current;
+      const props = proposeDirections(analysis, 0).map((d) => ({ ...d, family: d.family as string })) as ArtDirection[];
+      setProposals(props);
+      applyProposalRef.current(props[0]);
       dir.planFor(analysis);
       await hub.loadFile(buffer, file.name);
       setFileInfo({ name: file.name, duration: analysis.duration, bpm: analysis.beatGrid.bpm });
@@ -333,6 +350,33 @@ export function App() {
     force((x) => x + 1);
     flash('New visual identity');
   }, [flash]);
+
+  const setWorld = useCallback((id: string) => {
+    const engine = engineRef.current;
+    if (!WORLDS.some((w) => w.id === id) || id === worldRef.current) return;
+    if (engine) {
+      if (!engine.hasWorld(id)) engine.register(WORLDS.find((w) => w.id === id)!.create());
+      const dir = directorRef.current;
+      engine.transition(worldRef.current, id, dir.paramsIdle(), performance.now() / 1000);
+    }
+    worldRef.current = id;
+    setWorldState(id);
+    setPrefs((p) => ({ ...p, world: id }));
+  }, []);
+
+  const applyProposal = useCallback((d: ArtDirection) => {
+    const dir = directorRef.current;
+    dir.settings.seed = d.seed;
+    dir.settings.camera = ['orbit', 'dolly', 'locked', 'handheld', 'flythrough'].indexOf(d.camera) % 3;
+    dir.settings.complexity = d.complexity;
+    dir.setPalette(d.palette);
+    if (fileRef.current) dir.planFor(fileRef.current.analysis);
+    setPaletteIdx(-1);
+    setWorld(d.family);
+  }, [setWorld]);
+
+  const applyProposalRef = useRef(applyProposal);
+  applyProposalRef.current = applyProposal;
 
   const choosePalette = (i: number) => {
     setPaletteIdx(i);
@@ -436,6 +480,9 @@ export function App() {
         case 'surprise':
           surprise();
           break;
+        case 'world':
+          setWorld(c.value);
+          break;
         case 'reducedMotion':
           setPrefs((p) => ({ ...p, reducedMotion: c.value }));
           break;
@@ -444,7 +491,7 @@ export function App() {
           break;
       }
     };
-  }, [host, hub, listen, stop, seekTo, surprise]);
+  }, [host, hub, listen, stop, seekTo, surprise, setWorld]);
 
   // stream analysis to paired devices at 30 Hz, independent of the local frame rate
   useEffect(() => {
@@ -466,7 +513,7 @@ export function App() {
     const t = window.setInterval(() => {
       const d = directorRef.current.settings;
       const pr = prefsRef.current;
-      host.setScene({ world: 'liquid', seed: d.seed, colors: [...d.palette.colors], paletteName: d.palette.name, camera: d.camera, complexity: d.complexity, intensity: pr.intensity, reducedMotion: pr.reducedMotion, photosensitive: pr.photosensitive });
+      host.setScene({ world: worldRef.current, stage: pr.stage, seed: d.seed, colors: [...d.palette.colors], paletteName: d.palette.name, camera: d.camera, complexity: d.complexity, intensity: pr.intensity, reducedMotion: pr.reducedMotion, photosensitive: pr.photosensitive });
       const st = hub.status;
       const txt = statusText(st, hub.analyzer?.stats.silent ?? true);
       host.setStatus({
@@ -522,7 +569,7 @@ export function App() {
 
   return (
     <div className={`app${idle ? ' idle' : ''}${prefs.diagnostics ? ' diag-on' : ''}`}>
-      <canvas ref={artRef} className="art" aria-label="Audio-reactive liquid chrome sculpture" role="img" />
+      <canvas ref={artRef} className="art" aria-label={`Audio-reactive visual: ${worldName(world)}`} role="img" />
       {glError && (
         <div className="gl-error" role="alert">
           <h2>Graphics unavailable</h2>
@@ -607,6 +654,9 @@ export function App() {
           <span className="sr-only">Visual intensity</span>
           <input type="range" min={0.2} max={1.3} step={0.01} value={prefs.intensity} onChange={(e) => setPrefs((p) => ({ ...p, intensity: Number(e.target.value) }))} aria-label="Visual intensity" />
         </label>
+        {isFile && (
+          <button className="icon-btn" onClick={() => setSheet(sheet === 'export' ? null : 'export')} aria-label="Export video" aria-expanded={sheet === 'export'} data-testid="export-open"><IconExport /></button>
+        )}
         <button className="icon-btn" onClick={() => setSheet(sheet === 'connect' ? null : 'connect')} aria-label="Connect a display" aria-expanded={sheet === 'connect'}>
           <svg className="i" viewBox="0 0 24 24" aria-hidden><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8" /><path d="M12 16v4" /></svg>
         </button>
@@ -643,9 +693,39 @@ export function App() {
       {sheet === 'visual' && (
         <div className="sheet" role="dialog" aria-label="Change visual">
           <div className="sheet-head"><h2>Visual</h2><button className="icon-btn" onClick={() => setSheet(null)} aria-label="Close"><IconClose /></button></div>
-          <div className="world-row">
-            <button className="world current" aria-pressed><span className="world-swatch liquid" />Liquid Form</button>
+          {proposals.length > 0 && (
+            <>
+              <h4>Suggested for this song</h4>
+              <div className="proposals-row">
+                {proposals.map((d, i) => (
+                  <button key={d.id} className={`proposal${world === d.family && directorRef.current.settings.seed === d.seed ? ' current' : ''}`} onClick={() => applyProposal(d)} data-testid={`proposal-${i}`}>
+                    <ProposalPreview direction={d} file={fileRef.current} />
+                    <span className="proposal-name">{FAMILY_INFO[d.family].name}{i === 0 && <i className="best">Best match</i>}</span>
+                    <span className="proposal-why">{d.rationale[0]}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          <h4>World</h4>
+          <div className="world-grid" role="group" aria-label="Visual world">
+            {WORLDS.map((w) => (
+              <button key={w.id} className={`world${world === w.id ? ' current' : ''}`} aria-pressed={world === w.id} onClick={() => setWorld(w.id)} data-testid={`world-${w.id}`}>
+                <span className="world-swatch" style={{ background: w.swatch }} />
+                <span><b>{w.name}</b><small>{w.tagline}</small></span>
+              </button>
+            ))}
           </div>
+          {world === 'festival' && (
+            <>
+              <h4>On the big screen</h4>
+              <div className="seg stage-seg" role="group" aria-label="Stage screen content">
+                {WORLDS.filter((w) => w.id !== 'festival').map((w) => (
+                  <button key={w.id} aria-pressed={prefs.stage === w.id} onClick={() => setPrefs((p) => ({ ...p, stage: w.id }))}>{w.name.split(' ')[0]}</button>
+                ))}
+              </div>
+            </>
+          )}
           <h4>Colour</h4>
           <div className="palettes" role="group" aria-label="Palette">
             {PALETTES.map((p, i) => (
@@ -736,6 +816,22 @@ export function App() {
         </div>
       )}
 
+      {sheet === 'export' && fileRef.current && (
+        <ExportSheet
+          song={fileRef.current}
+          world={world}
+          stage={prefs.stage}
+          director={{ ...directorRef.current.settings }}
+          reducedMotion={prefs.reducedMotion}
+          photosensitive={prefs.photosensitive}
+          position={playT}
+          onClose={() => setSheet(null)}
+          onBusy={(busy) => {
+            if (busy) hub.pauseFile();
+          }}
+        />
+      )}
+
       {analyzing && (
         <div className="modal-wrap" role="dialog" aria-label="Preparing song">
           <div className="analyze-card">
@@ -793,4 +889,70 @@ function Toggle({ label, hint, on, set }: { label: string; hint: string; on: boo
       <button className="switch" role="switch" aria-checked={on} aria-label={label} onClick={() => set(!on)} />
     </div>
   );
+}
+
+/**
+ * Animated preview of a proposal: renders a short flipbook of the song's most
+ * intense moment in an offscreen engine, then loops it. Real frames, real audio
+ * analysis — not a stock thumbnail.
+ */
+function ProposalPreview({ direction, file }: { direction: ArtDirection; file: FileSession | null }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const out = ref.current;
+    if (!out || !file) return;
+    let stop = false;
+    let raf = 0;
+    const frames: ImageBitmap[] = [];
+    (async () => {
+      const off = document.createElement('canvas');
+      off.width = 240;
+      off.height = 300;
+      off.style.cssText = 'position:fixed;left:-9999px;width:240px;height:300px';
+      document.body.appendChild(off);
+      let engine: Engine | null = null;
+      try {
+        engine = new Engine(off);
+        engine.settings.quality = 1;
+        engine.settings.maxDpr = 1;
+        engine.settings.frameOffset = 0;
+        engine.register(WORLDS.find((w) => w.id === direction.family)!.create());
+        const dir = new DirectorRuntime({ seed: direction.seed, palette: direction.palette, intensity: 1, complexity: direction.complexity, camera: 0 });
+        dir.planFor(file.analysis);
+        const a = file.analysis;
+        const t0 = a.drops[0] ?? a.sections.reduce((b, s) => (s.energy > b.energy ? s : b), a.sections[0]).start;
+        const s = emptyState();
+        for (let i = 0; i < 16 && !stop; i++) {
+          file.timeline.stateAt(t0 + 0.5 + i / 8, s);
+          engine.render(direction.family, s, dir.paramsFile(s), i * 125);
+          frames.push(await createImageBitmap(off));
+          await new Promise((r) => setTimeout(r, 0));
+        }
+      } catch {
+        /* preview is optional */
+      } finally {
+        engine?.dispose();
+        off.remove();
+      }
+      const g = out.getContext('2d')!;
+      let i = 0;
+      let last = 0;
+      const loop = (now: number) => {
+        if (stop) return;
+        raf = requestAnimationFrame(loop);
+        if (now - last < 125 || !frames.length) return;
+        last = now;
+        out.width = 240;
+        out.height = 300;
+        g.drawImage(frames[i++ % frames.length], 0, 0);
+      };
+      raf = requestAnimationFrame(loop);
+    })();
+    return () => {
+      stop = true;
+      cancelAnimationFrame(raf);
+      frames.forEach((f) => f.close());
+    };
+  }, [direction, file]);
+  return <canvas ref={ref} className="proposal-canvas" aria-hidden />;
 }

@@ -431,3 +431,31 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border: none; b
 .peer-row .tag.direct { color: #8af0a8; }
 .peer-row .tag.relay, .peer-row .tag.reconnecting, .peer-row .tag.connecting { color: #ffc27a; }
 .join-req { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-radius: 14px; background: rgba(255,179,71,0.1); border: 1px solid rgba(255,179,71,0.3); margin-bottom: 10px; font-size: 14px; }
+
+/* worlds + proposals */
+.world-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.world-grid .world { display: flex; align-items: center; gap: 10px; text-align: left; border-radius: 14px; padding: 8px 10px; }
+.world-grid .world b { display: block; font-size: 13.5px; font-weight: 600; }
+.world-grid .world small { display: block; font-size: 11.5px; color: var(--text-3); line-height: 1.3; margin-top: 1px; }
+.world-grid .world-swatch { width: 30px; height: 30px; flex: none; border-radius: 9px; }
+.proposals-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.proposal { display: grid; gap: 4px; padding: 0 0 8px; border-radius: 14px; overflow: hidden; border: 1px solid var(--stroke); background: rgba(255,255,255,0.03); cursor: pointer; text-align: left; }
+.proposal.current { border-color: #fff; }
+.proposal-canvas { width: 100%; aspect-ratio: 4 / 5; display: block; background: #000; }
+.proposal-name { font-size: 12.5px; font-weight: 600; padding: 2px 8px 0; display: flex; flex-direction: column; gap: 3px; }
+.proposal-name .best { font-style: normal; font-size: 10px; font-weight: 600; width: fit-content; padding: 2px 6px; border-radius: 99px; background: var(--signature); }
+.proposal-why { font-size: 11px; color: var(--text-3); padding: 0 8px; line-height: 1.3; }
+.sheet:has(.proposals-row) { width: 420px; }
+.remote-worlds { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.remote-worlds button { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 14px; border: 1px solid var(--stroke); background: rgba(255,255,255,0.04); font-size: 14px; text-align: left; cursor: pointer; min-height: 48px; }
+.remote-worlds button[aria-pressed=true] { border-color: #fff; background: rgba(255,255,255,0.1); }
+.remote-worlds .world-swatch { width: 26px; height: 26px; border-radius: 8px; flex: none; }
+.stage-seg { grid-template-columns: repeat(5, 1fr); grid-auto-flow: row; } .stage-seg button { font-size: 11.5px; }
+.export-modal { width: min(480px, 100%); max-height: calc(100% - 32px); overflow: auto; }
+.export-modal .aspects small { color: var(--text-3); }
+.export-modal .field { margin-top: 14px; }
+.export-phase { font-size: 15px; font-weight: 600; margin-top: 8px; }
+.export-done video { width: 100%; max-height: 46vh; border-radius: 14px; background: #000; margin-bottom: 10px; }
+.check.warn { color: #ffc27a; }
+.check svg { width: 15px; height: 15px; stroke: currentColor; stroke-width: 3; fill: none; flex: none; }
+a.btn { text-decoration: none; }

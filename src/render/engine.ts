@@ -76,6 +76,10 @@ export interface EngineSettings {
   maxDpr: number;
   /** lift the subject above a bottom UI band (fraction of height) */
   frameOffset: number;
+  /** world shown on the Festival Mode LED wall (null = procedural show) */
+  stageWorld: string | null;
+  /** render at an exact pixel size, no adaptive scaling (export) */
+  fixedSize?: { w: number; h: number };
 }
 
 export interface EngineStats {
@@ -132,7 +136,7 @@ export class FlashGuard {
 export class Engine {
   readonly canvas: HTMLCanvasElement;
   readonly gl: WebGL2RenderingContext;
-  settings: EngineSettings = { photosensitive: false, reducedMotion: false, quality: 'auto', maxDpr: 2, frameOffset: 0.08 };
+  settings: EngineSettings = { photosensitive: false, reducedMotion: false, quality: 'auto', maxDpr: 2, frameOffset: 0.08, stageWorld: null };
   readonly stats: EngineStats = { fps: 0, frameMs: 0, renderScale: 1, quality: 2, width: 0, height: 0, flashesSuppressed: 0, contextLost: false };
   private worlds = new Map<string, World>();
   private scene: Target;
@@ -214,6 +218,25 @@ void main(){ vec2 c = vUv - 0.5; float r = length(c); float k = smoothstep(uK * 
   }
 
   private resize(): { w: number; h: number } {
+    const fixed = this.settings.fixedSize;
+    if (fixed) {
+      if (this.canvas.width !== fixed.w || this.canvas.height !== fixed.h) {
+        this.canvas.width = fixed.w;
+        this.canvas.height = fixed.h;
+      }
+      this.scale = 1;
+      this.scene.resize(fixed.w, fixed.h);
+      this.sceneB.resize(fixed.w, fixed.h);
+      let bw = fixed.w / 2, bh = fixed.h / 2;
+      for (const b of this.bloom) {
+        b.resize(bw, bh);
+        bw /= 2;
+        bh /= 2;
+      }
+      this.stats.width = fixed.w;
+      this.stats.height = fixed.h;
+      return { w: fixed.w, h: fixed.h };
+    }
     const dpr = Math.min(this.settings.maxDpr, window.devicePixelRatio || 1);
     const cw = Math.max(1, Math.round(this.canvas.clientWidth * dpr));
     const ch = Math.max(1, Math.round(this.canvas.clientHeight * dpr));
@@ -268,7 +291,8 @@ void main(){ vec2 c = vUv - 0.5; float r = length(c); float k = smoothstep(uK * 
    * Render one frame. `wallMs` is performance.now() (for fps / transitions only);
    * all motion comes from `state`.
    */
-  render(worldId: string, state: VisualState, params: WorldParams, wallMs: number): void {
+  render(worldId: string, stateIn: VisualState, params: WorldParams, wallMs: number): void {
+    let state = stateIn;
     const gl = this.gl;
     if (gl.isContextLost()) return;
     const dt = this.lastFrame ? wallMs - this.lastFrame : 16;
@@ -281,12 +305,27 @@ void main(){ vec2 c = vUv - 0.5; float r = length(c); float k = smoothstep(uK * 
 
     const { w, h } = this.resize();
     const p: WorldParams = { ...params, motionScale: params.motionScale * (this.settings.reducedMotion ? 0.35 : 1) };
+    // worlds never see an unguarded flash request
+    // the flash guard runs once per frame; worlds only ever see the admitted value
+    const guarded = this.guard.apply(state.flash * params.intensity, state.t, this.settings.photosensitive);
+    this.lastGuardedFlash = guarded;
+    state = { ...state, flash: guarded / 0.35 };
     const input: FrameInput = { s: state, p, width: w, height: h, quality: this.tier, frameOffset: this.settings.frameOffset };
     gl.bindVertexArray(this.vao);
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.BLEND);
 
     const world = this.worlds.get(worldId);
+    // stage content: render the chosen world small, then hand it to the stage
+    const stage = this.settings.stageWorld && worldId === 'festival' ? this.worlds.get(this.settings.stageWorld) : undefined;
+    if (stage) {
+      if (!this.stageTarget) this.stageTarget = new Target(gl, this.hdr);
+      this.stageTarget.resize(Math.min(640, w), Math.min(360, Math.round(w * 0.5625)));
+      this.stageTarget.bind();
+      stage.render({ ...input, width: this.stageTarget.width, height: this.stageTarget.height, frameOffset: 0, quality: Math.min(1, this.tier) });
+      input.screen = this.stageTarget.tex;
+      gl.bindVertexArray(this.vao);
+    }
     let src = this.scene;
     if (this.fade && wallMs / 1000 - this.fade.start < this.fade.dur && this.worlds.has(this.fade.from) && this.fade.to === worldId) {
       const k = (wallMs / 1000 - this.fade.start) / this.fade.dur;
@@ -322,7 +361,8 @@ void main(){ vec2 c = vUv - 0.5; float r = length(c); float k = smoothstep(uK * 
     gl.disable(gl.BLEND);
 
     // composite
-    const flash = this.guard.apply(state.flash * params.intensity, state.t, this.settings.photosensitive);
+    // worlds with their own strobe fixtures handle flashes; no full-screen wash
+    const flash = world?.ownFlash ? 0 : guarded;
     this.stats.flashesSuppressed = this.guard.suppressed;
     const pal = params.palette;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -347,6 +387,9 @@ void main(){ vec2 c = vUv - 0.5; float r = length(c); float k = smoothstep(uK * 
 
   /** Crossfade helper: mixes scene (A) and sceneB (B) into a bloom-sized-free target. */
   private mixTarget: Target | null = null;
+  private stageTarget: Target | null = null;
+  /** flash level admitted by the guard on the previous frame (worlds with ownFlash read it) */
+  lastGuardedFlash = 0;
   private mixInto(k: number): Target {
     const gl = this.gl;
     if (!this.mixTarget) this.mixTarget = new Target(gl, this.hdr);
@@ -372,6 +415,7 @@ void main(){ vec2 c = vUv - 0.5; float r = length(c); float k = smoothstep(uK * 
     this.scene.dispose();
     this.sceneB.dispose();
     this.mixTarget?.dispose();
+    this.stageTarget?.dispose();
     this.bloom.forEach((b) => b.dispose());
     this.pDown.dispose();
     this.pUp.dispose();

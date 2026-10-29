@@ -7,14 +7,15 @@ import { Rng, mixSeed, hashString } from '../core/random';
  * measurement, so it is explainable and reproducible.
  */
 
-export type SceneFamily = 'electric' | 'laser' | 'cosmic' | 'liquid' | 'festival';
+export type SceneFamily = 'electric' | 'laser' | 'cosmic' | 'liquid' | 'festival' | 'particles';
 
 export const FAMILY_INFO: Record<SceneFamily, { name: string; tagline: string }> = {
   electric: { name: 'Electric Energy', tagline: 'Lightning filaments, plasma core, bass-driven surges' },
   laser: { name: 'Laser Dimension', tagline: 'Beam corridors and geometric light architecture' },
-  cosmic: { name: 'Cosmic Universe', tagline: 'Nebula clouds and slow celestial motion' },
+  cosmic: { name: 'Cosmic Dreams', tagline: 'Nebula clouds and slow celestial motion' },
   liquid: { name: 'Liquid Morph', tagline: 'Chrome fluid sculpture that breathes with the groove' },
-  festival: { name: 'Festival Overdrive', tagline: 'Layered stage geometry, drops that detonate' },
+  festival: { name: 'Festival Mode', tagline: 'Stage lights, lasers and drops that detonate' },
+  particles: { name: 'Particle Universe', tagline: 'Thousands of particles forming and dissolving shapes' },
 };
 
 export type CameraStyle = 'orbit' | 'dolly' | 'handheld' | 'flythrough' | 'locked';
@@ -132,6 +133,10 @@ export function scoreFamilies(a: AnalysisResult): Record<SceneFamily, { score: n
       score: 0.1 + 0.55 * energy + 0.25 * Math.min(drops, 2) / 2 + 0.15 * density * pulse,
       why: drops ? `${drops} detected drop${drops > 1 ? 's' : ''} to detonate` : 'high energy throughout',
     },
+    particles: {
+      score: 0.3 + 0.3 * density + 0.25 * bright + 0.1 * (1 - Math.abs(energy - 0.5) * 2),
+      why: `${Math.round(density * 6 * 10) / 10} attacks/s keep thousands of particles busy`,
+    },
   };
 }
 
@@ -142,6 +147,7 @@ function cameraFor(rng: Rng, family: SceneFamily, energy: number): CameraStyle {
     cosmic: ['orbit', 'flythrough', 'dolly'],
     liquid: ['orbit', 'locked', 'dolly'],
     festival: ['handheld', 'orbit', 'flythrough'],
+    particles: ['orbit', 'dolly', 'locked'],
   };
   const o = options[family];
   return energy > 0.7 && rng.chance(0.5) ? o[o.length - 1] : rng.pick(o);

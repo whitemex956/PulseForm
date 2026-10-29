@@ -388,6 +388,60 @@ await test('companion-missing-is-explained', async () => {
   return { status: pill };
 });
 
+async function exportCase(aspect, world, seconds) {
+  const { execFileSync } = await import('node:child_process');
+  const { b, p, errors } = await page({ mic: null, prefs: { world } });
+  await p.evaluate((sec) => { window.__pfTest.exportSeconds = sec; }, seconds);
+  await p.setInputFiles('input[type=file]', join(AUDIO, 'energy.wav'));
+  await p.waitForFunction(() => window.pulseform.hub.status.kind === 'file' && window.pulseform.hub.status.state === 'playing', null, { timeout: 120000 });
+  await wake(p);
+  await p.keyboard.press('Escape');
+  await p.click('[data-testid=export-open]');
+  await p.click(`[data-testid="aspect-${aspect}"]`);
+  await p.click('[data-testid=export-start]');
+  await p.screenshot({ path: join(OUT, `export-progress-${aspect.replace(':', 'x')}.png`) });
+  await p.waitForSelector('[data-testid=export-download]', { timeout: 900000 });
+  await p.screenshot({ path: join(OUT, `export-done-${aspect.replace(':', 'x')}.png`) });
+  const meta = await p.evaluate(async () => {
+    const r = window.__pfLastExport;
+    const buf = new Uint8Array(await r.blob.arrayBuffer());
+    let s = '';
+    for (let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+    return { b64: btoa(s), validation: r.validation, w: r.width, h: r.height, duration: r.duration, audio: r.audioCodec, video: r.videoCodec };
+  });
+  await b.close();
+  const file = join(OUT, `export-${aspect.replace(':', 'x')}.mp4`);
+  writeFileSync(file, Buffer.from(meta.b64, 'base64'));
+  const probe = JSON.parse(execFileSync('ffprobe', ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', file]).toString());
+  // decode every frame and every audio packet: any corruption makes ffmpeg error out
+  execFileSync('ffmpeg', ['-v', 'error', '-xerror', '-i', file, '-f', 'null', '-']);
+  const vs = probe.streams.find((x) => x.codec_type === 'video');
+  const as = probe.streams.find((x) => x.codec_type === 'audio');
+  // A/V sync: the first audio and video timestamps must line up
+  return { meta, vs, as, format: probe.format, errors };
+}
+
+await test('export-mp4-landscape-validated', async () => {
+  const r = await exportCase('16:9', 'liquid', 3);
+  assert(r.vs && r.vs.codec_name === 'h264', `video ${r.vs?.codec_name}`);
+  assert(r.vs.width === 1920 && r.vs.height === 1080, `size ${r.vs.width}x${r.vs.height}`);
+  assert(r.as && ['aac', 'opus'].includes(r.as.codec_name), `audio ${r.as?.codec_name}`);
+  const d = Number(r.format.duration);
+  assert(Math.abs(d - 3) < 0.15, `duration ${d}`);
+  assert(Math.abs(Number(r.vs.duration) - Number(r.as.duration)) < 0.1, `a/v durations ${r.vs.duration} vs ${r.as.duration}`);
+  assert(r.meta.validation.durationOk && r.meta.validation.pictureOk, `in-app validation ${JSON.stringify(r.meta.validation)}`);
+  assert(!r.errors.length, r.errors.join('\n'));
+  return { ffprobe: { video: `${r.vs.codec_name} ${r.vs.width}x${r.vs.height} ${r.vs.r_frame_rate}`, audio: `${r.as.codec_name} ${r.as.sample_rate} Hz ${r.as.channels}ch`, duration: d, videoDur: Number(r.vs.duration), audioDur: Number(r.as.duration) }, inApp: r.meta.validation, ffmpegFullDecode: 'ok' };
+});
+
+await test('export-mp4-portrait-festival-validated', async () => {
+  const r = await exportCase('9:16', 'festival', 2);
+  assert(r.vs.width === 1080 && r.vs.height === 1920, `size ${r.vs.width}x${r.vs.height}`);
+  assert(Math.abs(Number(r.format.duration) - 2) < 0.15, `duration ${r.format.duration}`);
+  assert(r.meta.validation.pictureOk, 'blank picture');
+  return { video: `${r.vs.width}x${r.vs.height}`, duration: Number(r.format.duration), audio: r.as?.codec_name };
+});
+
 srv.close();
 writeFileSync(join(OUT, 'results.json'), JSON.stringify({ ranAt: new Date().toISOString(), results }, null, 2));
 const failed = results.filter((r) => !r.pass);

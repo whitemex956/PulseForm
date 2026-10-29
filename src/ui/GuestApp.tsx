@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Engine } from '../render/engine';
-import { LiquidForm } from '../render/worlds/liquid';
+import { WORLDS } from '../render/worlds';
 import { paletteToArray } from '../director/runtime';
 import { SIGNATURE, REMOTE_PALETTES, fmtTime } from '../director/director';
 import { emptyState, type VisualState } from '../timeline/timeline';
@@ -158,7 +158,6 @@ function useArt(canvas: React.RefObject<HTMLCanvasElement | null>, guest: Sessio
     let engine: Engine;
     try {
       engine = new Engine(c);
-      engine.register(new LiquidForm());
     } catch {
       return;
     }
@@ -179,7 +178,12 @@ function useArt(canvas: React.RefObject<HTMLCanvasElement | null>, guest: Sessio
       }
       engine.settings.reducedMotion = sc?.reducedMotion ?? false;
       engine.settings.photosensitive = sc?.photosensitive ?? false;
-      engine.render('liquid', s, {
+      const wid = WORLDS.some((w) => w.id === sc?.world) ? sc!.world : 'liquid';
+      if (!engine.hasWorld(wid)) engine.register(WORLDS.find((w) => w.id === wid)!.create());
+      const stageId = wid === 'festival' && sc?.stage && WORLDS.some((w) => w.id === sc.stage) ? sc.stage : null;
+      if (stageId && !engine.hasWorld(stageId)) engine.register(WORLDS.find((w) => w.id === stageId)!.create());
+      engine.settings.stageWorld = stageId;
+      engine.render(wid, s, {
         seed: sc?.seed ?? 0x5eed1234,
         palette: pal,
         complexity: sc?.complexity ?? 0.7,
@@ -322,6 +326,17 @@ function Remote({ guest, onView }: { guest: SessionGuest; onView: () => void }) 
             void send('intensity', { cmd: 'intensity', value: v });
           }}
         />
+      </div>
+      <div className="remote-field">
+        <label>World</label>
+        <div className="remote-worlds" role="group" aria-label="Visual world">
+          {WORLDS.map((w) => (
+            <button key={w.id} aria-pressed={sc?.world === w.id} onClick={() => void send('world', { cmd: 'world', value: w.id })} data-testid={`remote-world-${w.id}`}>
+              <span className="world-swatch" style={{ background: w.swatch }} />
+              {w.name}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="remote-field">
         <label>Colour</label>

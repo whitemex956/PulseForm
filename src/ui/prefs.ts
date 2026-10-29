@@ -6,6 +6,9 @@ export interface Prefs {
   photosensitive: boolean;
   diagnostics: boolean;
   quality: 'auto' | 0 | 1 | 2 | 3;
+  world: string;
+  /** what Festival Mode shows on its LED wall */
+  stage: string;
 }
 
 export interface SavedWorld {
@@ -23,7 +26,7 @@ const WORLDS = 'pulseform.worlds.v1';
 
 export function loadPrefs(): Prefs {
   const reduce = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const def: Prefs = { intensity: 1, reducedMotion: reduce, photosensitive: false, diagnostics: false, quality: 'auto' };
+  const def: Prefs = { intensity: 1, reducedMotion: reduce, photosensitive: false, diagnostics: false, quality: 'auto', world: 'liquid', stage: 'liquid' };
   try {
     const v = JSON.parse(localStorage.getItem(KEY) ?? 'null');
     return v ? { ...def, ...v } : def;

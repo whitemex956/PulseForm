@@ -33,10 +33,14 @@ export interface FrameInput {
   quality: number;
   /** vertical framing: fraction of height to lift the subject (keeps it above the waveform band) */
   frameOffset: number;
+  /** optional texture of another world, shown as stage content (Festival Mode) */
+  screen?: WebGLTexture;
 }
 
 export interface World {
   readonly id: string;
+  /** the world renders its own strobes, so the engine skips the full-screen flash wash */
+  readonly ownFlash?: boolean;
   init(gl: WebGL2RenderingContext): void;
   /** Draw into the currently bound framebuffer (HDR, linear). */
   render(f: FrameInput): void;
