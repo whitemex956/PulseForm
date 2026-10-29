@@ -1,0 +1,118 @@
+{
+  "ambient": {
+    "name": "ambient",
+    "duration": 80.0,
+    "bpm": null,
+    "has_pulse": false,
+    "sections": [
+      {
+        "start": 0.0,
+        "end": 80.0,
+        "label": "ambient"
+      }
+    ],
+    "drops": [],
+    "expected": {
+      "energy": "low",
+      "brightness": "dark"
+    }
+  },
+  "house": {
+    "name": "house",
+    "duration": 125.87096774193549,
+    "bpm": 124.0,
+    "first_beat": 0.0,
+    "has_pulse": true,
+    "sections": [
+      {
+        "start": 0.0,
+        "end": 15.4839,
+        "label": "intro"
+      },
+      {
+        "start": 15.4839,
+        "end": 46.4516,
+        "label": "groove"
+      },
+      {
+        "start": 46.4516,
+        "end": 61.9355,
+        "label": "breakdown"
+      },
+      {
+        "start": 61.9355,
+        "end": 77.4194,
+        "label": "build"
+      },
+      {
+        "start": 77.4194,
+        "end": 108.3871,
+        "label": "drop"
+      },
+      {
+        "start": 108.3871,
+        "end": 123.871,
+        "label": "outro"
+      }
+    ],
+    "drops": [
+      77.4194
+    ],
+    "expected": {
+      "energy": "medium",
+      "brightness": "medium"
+    }
+  },
+  "energy": {
+    "name": "energy",
+    "duration": 110.80000000000001,
+    "bpm": 150.0,
+    "first_beat": 0.0,
+    "has_pulse": true,
+    "sections": [
+      {
+        "start": 0.0,
+        "end": 12.8,
+        "label": "intro"
+      },
+      {
+        "start": 12.8,
+        "end": 25.6,
+        "label": "build"
+      },
+      {
+        "start": 25.6,
+        "end": 51.2,
+        "label": "drop"
+      },
+      {
+        "start": 51.2,
+        "end": 64.0,
+        "label": "breakdown"
+      },
+      {
+        "start": 64.0,
+        "end": 76.8,
+        "label": "build"
+      },
+      {
+        "start": 76.8,
+        "end": 102.4,
+        "label": "drop"
+      },
+      {
+        "start": 102.4,
+        "end": 108.8,
+        "label": "outro"
+      }
+    ],
+    "drops": [
+      25.6,
+      76.8
+    ],
+    "expected": {
+      "energy": "high",
+      "brightness": "bright"
+    }
+  }
+}

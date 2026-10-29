@@ -1,0 +1,5 @@
+node_modules/
+dist/
+test-audio/*.wav
+test-results/
+*.mp4
